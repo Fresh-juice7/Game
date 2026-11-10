@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skilly – Zombie Defense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#171a26;--panel:#20243a;--line:#343a5a;--text:#e8e3d3;--dim:#9a9fb8;--accent:#d99a3d;--danger:#c0443f;--ok:#7fb89a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "Source Sans 3",system-ui,sans-serif}
+h1,h2{font-family:"IM Fell English",Georgia,serif;font-weight:400;margin:0}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:12px}
+aside h1{font-size:28px}
+input,select,textarea,button{font:inherit;color:var(--text);background:#14172a;border:1px solid var(--line);border-radius:6px;padding:7px 10px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{cursor:pointer;background:#2a3050}
+button:hover{background:#343c64}
+button.primary{background:var(--accent);color:#1a1405;border-color:var(--accent);font-weight:600}
+button.danger{color:#ffb4b0;border-color:#5a2a2a}
+.list{display:flex;flex-direction:column;gap:4px;overflow:auto;flex:1}
+.item{text-align:left;background:transparent;border:1px solid transparent}
+.item.on{background:#2d3458;border-color:var(--accent)}
+.item small{display:block;color:var(--dim)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+main{padding:28px;max-width:960px;width:100%}
+.empty{color:var(--dim);margin-top:40px;font-size:18px}
+label{display:block;color:var(--dim);font-size:14px;margin-bottom:2px}
+.head{display:grid;grid-template-columns:1fr 120px;gap:12px;margin-bottom:12px}
+.head input,.head textarea{width:100%}
+.name{font-family:"IM Fell English",Georgia,serif;font-size:26px}
+.lvl{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:18px 0}
+.lvl b{font-size:22px;color:var(--accent)}
+.lvl input[type=range]{width:100%;padding:0;accent-color:var(--accent)}
+.stats{display:grid;gap:10px}
+.stat{display:grid;grid-template-columns:1.4fr .8fr .8fr 1.2fr auto;gap:8px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.stat input,.stat select{width:100%}
+.val{font-size:22px;color:var(--accent);text-align:right;min-width:90px}
+.val small{color:var(--dim);font-size:13px}
+.tablewrap{overflow:auto;max-height:340px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);color:var(--dim);font-weight:600}
+td:first-child,th:first-child{text-align:left}
+tr.cur td{background:#2d3458;color:var(--accent)}
+.bar{display:flex;gap:8px;justify-content:space-between;margin:22px 0 6px;align-items:center;flex-wrap:wrap}
+.hint{color:var(--dim);font-size:14px}
+.nav{display:flex;gap:6px}.nav button{flex:1}.nav button.on{background:var(--accent);color:#1a1405;border-color:var(--accent);font-weight:600}
+.pl{display:flex;gap:8px;align-items:center}.pl input{width:80px}
+.own{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}.own input{width:90px}
+.badge{color:var(--ok);font-size:14px}
+.item-row{display:grid;grid-template-columns:1.6fr .6fr .6fr .6fr .7fr auto;gap:8px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.item-row input{width:100%}.item-row .note{grid-column:1/-1}
+.dur{height:6px;border-radius:3px;background:#14172a;overflow:hidden;margin-top:6px}.dur i{display:block;height:100%;background:var(--ok)}.dur i.low{background:var(--danger)}
+.sum{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap}.sum b{color:var(--accent);font-size:20px}
+@media(max-width:760px){.app{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}.list{max-height:200px}.stat{grid-template-columns:1fr 1fr}.item-row{grid-template-columns:1fr 1fr}main{padding:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>Skilly</h1>
+    <div class="pl"><label style="margin:0" for="plv">Level postavy</label><input id="plv" type="number" min="1" value="1"></div>
+    <div class="nav"><button id="nv-skills">Skilly</button><button id="nv-inv">Inventář</button></div>
+    <input id="q" type="search" placeholder="Hledat skill…" aria-label="Hledat skill">
+    <button class="primary" id="add">Nový skill</button>
+    <div class="list" id="list"></div>
+    <div class="row">
+      <button id="exp">Export</button>
+      <button id="imp">Import</button>
+      <input id="file" type="file" accept="application/json" hidden>
+    </div>
+    <div class="hint">Data jsou uložená v tomhle prohlížeči. Dělej si občas export.</div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+const KEY = "zombie-skills-v1";
+let db = { skills: [], sel: null, items: [], view: "skills", playerLevel: 1 };
+
+function load() {
+  try { const r = localStorage.getItem(KEY); if (r) db = JSON.parse(r); } catch (e) {}
+  if (!Array.isArray(db.skills)) db = { skills: [], sel: null };
+  if (!Array.isArray(db.items)) db.items = [];
+  db.view = db.view || "skills"; db.playerLevel = db.playerLevel || 1;
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cur = () => db.skills.find(s => s.id === db.sel);
+
+/* Škálování – tady se mění vzorce */
+function valueAt(st, lvl) {
+  const n = lvl - 1;
+  if (st.mode === "pct") return st.base * Math.pow(1 + st.step / 100, n); // každý level o X % víc (násobí se)
+  return st.base + st.step * n;                                           // každý level +X
+}
+const fmt = v => (Math.round(v * 100) / 100).toString();
+
+function newSkill() {
+  const s = { id: uid(), name: "Nový skill", desc: "", maxLevel: 10, level: 1, owned: 1,
+    stats: [{ name: "Damage", unit: "", base: 10, step: 2, mode: "flat" }] };
+  db.skills.push(s); db.sel = s.id; save(); renderList(); renderMain();
+}
+
+function renderList() {
+  const q = document.getElementById("q").value.toLowerCase();
+  const items = db.skills.filter(s => s.name.toLowerCase().includes(q));
+  document.getElementById("list").innerHTML = items.map(s =>
+    `<button class="item ${s.id === db.sel ? "on" : ""}" data-id="${s.id}">${esc(s.name)}<small>lvl ${s.owned || 1} / ${s.maxLevel} · ${s.stats.length} stat${s.stats.length === 1 ? "" : "y"}</small></button>`
+  ).join("") || `<div class="hint">Zatím nic.</div>`;
+}
+
+function renderMain() {
+  syncNav();
+  if (db.view === "inv") return renderInv();
+  const s = cur(), m = document.getElementById("main");
+  if (!s) { m.innerHTML = `<h2>Žádný skill</h2><div class="empty">Klikni na „Nový skill“ a přidej první.</div>`; return; }
+  m.innerHTML = `
+    <div class="head">
+      <div><label>Název</label><input class="name" id="f-name" value="${esc(s.name)}"></div>
+      <div><label>Max level</label><input id="f-max" type="number" min="1" max="500" value="${s.maxLevel}"></div>
+    </div>
+    <label>Popis</label>
+    <textarea id="f-desc" rows="2" style="width:100%">${esc(s.desc)}</textarea>
+    <div class="lvl">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><span>Náhled na levelu</span><b id="lvl-n"></b></div>
+      <input type="range" id="f-lvl" min="1" max="${s.maxLevel}" value="${s.level}" aria-label="Level">
+      <div class="own"><label style="margin:0" for="f-own">Aktuální level skillu</label><input id="f-own" type="number" min="1" max="${s.maxLevel}" value="${s.owned || 1}"><button id="own-set">Nastavit na náhled</button><button id="own-up">+1 level</button></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="bar">
+      <button id="add-stat">Přidat stat</button>
+      <div class="row"><button id="dup">Duplikovat skill</button><button id="del" class="danger">Smazat skill</button></div>
+    </div>
+    <h2 style="margin-top:26px">Přehled levelů</h2>
+    <div class="tablewrap"><table id="tbl"></table></div>`;
+  renderStats(); refresh();
+}
+
+function renderStats() {
+  const s = cur();
+  document.getElementById("stats").innerHTML = s.stats.map((st, i) => `
+    <div class="stat" data-i="${i}">
+      <div><label>Stat</label><input data-k="name" value="${esc(st.name)}" placeholder="např. Plocha"></div>
+      <div><label>Základ (lvl 1)</label><input data-k="base" type="number" step="any" value="${st.base}"></div>
+      <div><label>Přírůstek</label><input data-k="step" type="number" step="any" value="${st.step}"></div>
+      <div><label>Typ růstu</label>
+        <select data-k="mode">
+          <option value="flat" ${st.mode === "flat" ? "selected" : ""}>+ pevně za level</option>
+          <option value="pct" ${st.mode === "pct" ? "selected" : ""}>+ % za level (násobí se)</option>
+        </select></div>
+      <div><div class="val" data-val></div></div>
+      <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center">
+        <label style="margin:0">Jednotka</label><input data-k="unit" value="${esc(st.unit)}" placeholder="m², s, %…" style="width:120px">
+        <button class="danger" data-rm style="margin-left:auto">Odebrat</button>
+      </div>
+    </div>`).join("") || `<div class="hint">Skill nemá žádné staty. Přidej první.</div>`;
+}
+
+function refresh() {
+  const s = cur(); if (!s) return;
+  s.level = Math.min(Math.max(1, s.level), s.maxLevel);
+  s.owned = Math.min(Math.max(1, s.owned || 1), s.maxLevel);
+  document.getElementById("lvl-n").textContent = `${s.level} / ${s.maxLevel}`;
+  document.querySelectorAll("#stats .stat").forEach(el => {
+    const st = s.stats[+el.dataset.i];
+    el.querySelector("[data-val]").innerHTML = `${fmt(valueAt(st, s.level))} <small>${esc(st.unit)}</small><br><small>teď (lvl ${s.owned}): ${fmt(valueAt(st, s.owned))} ${esc(st.unit)}</small>`;
+  });
+  const head = s.stats.map(st => `<th>${esc(st.name || "?")}${st.unit ? " (" + esc(st.unit) + ")" : ""}</th>`).join("");
+  let rows = "";
+  for (let l = 1; l <= s.maxLevel; l++)
+    rows += `<tr class="${l === s.level ? "cur" : ""}"><td>Level ${l}${l === s.owned ? ` <span class="badge">● aktuální</span>` : ""}</td>${s.stats.map(st => `<td>${fmt(valueAt(st, l))}</td>`).join("")}</tr>`;
+  document.getElementById("tbl").innerHTML = `<thead><tr><th>Level</th>${head}</tr></thead><tbody>${rows}</tbody>`;
+  save();
+}
+
+/* události */
+document.getElementById("add").onclick = newSkill;
+document.getElementById("q").oninput = renderList;
+document.getElementById("list").onclick = e => {
+  const b = e.target.closest("[data-id]"); if (!b) return;
+  db.sel = b.dataset.id; db.view = "skills"; save(); renderList(); renderMain();
+};
+document.getElementById("main").addEventListener("input", e => {
+  if (db.view === "inv") return;
+  const s = cur(); if (!s) return;
+  const t = e.target;
+  if (t.id === "f-name") { s.name = t.value; renderList(); }
+  else if (t.id === "f-desc") s.desc = t.value;
+  else if (t.id === "f-max") {
+    s.maxLevel = Math.max(1, Math.min(500, parseInt(t.value) || 1));
+    document.getElementById("f-lvl").max = s.maxLevel; document.getElementById("f-own").max = s.maxLevel; renderList();
+  }
+  else if (t.id === "f-lvl") s.level = +t.value;
+  else if (t.id === "f-own") { s.owned = parseInt(t.value) || 1; renderList(); }
+  else if (t.dataset.k) {
+    const st = s.stats[+t.closest(".stat").dataset.i], k = t.dataset.k;
+    st[k] = (k === "base" || k === "step") ? (parseFloat(t.value) || 0) : t.value;
+  }
+  refresh();
+});
+document.getElementById("main").addEventListener("click", e => {
+  if (db.view === "inv") return;
+  const s = cur(); if (!s) return;
+  if (e.target.id === "own-set") { s.owned = s.level; document.getElementById("f-own").value = s.owned; renderList(); refresh(); }
+  else if (e.target.id === "own-up") { s.owned = Math.min(s.maxLevel, (s.owned || 1) + 1); document.getElementById("f-own").value = s.owned; renderList(); refresh(); }
+  else if (e.target.id === "add-stat") { s.stats.push({ name: "", unit: "", base: 1, step: 1, mode: "flat" }); renderStats(); refresh(); renderList(); }
+  else if (e.target.dataset.rm !== undefined) { s.stats.splice(+e.target.closest(".stat").dataset.i, 1); renderStats(); refresh(); renderList(); }
+  else if (e.target.id === "dup") { const c = JSON.parse(JSON.stringify(s)); c.id = uid(); c.name += " (kopie)"; db.skills.push(c); db.sel = c.id; save(); renderList(); renderMain(); }
+  else if (e.target.id === "del") {
+    if (!confirm(`Smazat skill „${s.name}“?`)) return;
+    db.skills = db.skills.filter(x => x.id !== s.id); db.sel = db.skills[0]?.id ?? null; save(); renderList(); renderMain();
+  }
+});
+document.getElementById("main").addEventListener("change", e => { if (e.target.dataset.k === "mode") refresh(); });
+
+/* inventář */
+function renderInv() {
+  const m = document.getElementById("main");
+  m.innerHTML = `<h2>Inventář</h2><div class="sum" id="sum"></div><div id="items"></div><button class="primary" id="add-item">Přidat item</button>`;
+  document.getElementById("items").innerHTML = db.items.map((it, i) => `
+    <div class="item-row" data-i="${i}">
+      <div><label>Item</label><input data-k="name" value="${esc(it.name)}"></div>
+      <div><label>Počet</label><input data-k="qty" type="number" min="0" step="1" value="${it.qty}"></div>
+      <div><label>Durabilita</label><input data-k="dur" type="number" min="0" step="any" value="${it.dur}"></div>
+      <div><label>Max dur.</label><input data-k="maxDur" type="number" min="0" step="any" value="${it.maxDur}"></div>
+      <div><label>Cena / ks</label><input data-k="price" type="number" min="0" step="any" value="${it.price}"></div>
+      <button class="danger" data-rm>Odebrat</button>
+      <div class="note"><input data-k="note" placeholder="Poznámka…" value="${esc(it.note)}"><div class="dur"><i data-bar></i></div></div>
+    </div>`).join("") || `<div class="hint" style="margin-bottom:12px">Inventář je prázdný.</div>`;
+  refreshInv();
+}
+function refreshInv() {
+  document.querySelectorAll("#items .item-row").forEach(el => {
+    const it = db.items[+el.dataset.i], bar = el.querySelector("[data-bar]");
+    const p = it.maxDur > 0 ? Math.max(0, Math.min(1, it.dur / it.maxDur)) : 0;
+    bar.style.width = (p * 100) + "%"; bar.className = p < 0.25 ? "low" : "";
+  });
+  const total = db.items.reduce((a, it) => a + it.qty * it.price, 0);
+  const n = db.items.reduce((a, it) => a + it.qty, 0);
+  document.getElementById("sum").innerHTML = `<div>Itemů celkem<br><b>${fmt(n)}</b></div><div>Hodnota inventáře<br><b>${fmt(total)}</b></div>`;
+  save();
+}
+function syncNav() {
+  document.getElementById("nv-skills").classList.toggle("on", db.view !== "inv");
+  document.getElementById("nv-inv").classList.toggle("on", db.view === "inv");
+  document.getElementById("plv").value = db.playerLevel;
+}
+document.getElementById("nv-skills").onclick = () => { db.view = "skills"; save(); renderMain(); };
+document.getElementById("nv-inv").onclick = () => { db.view = "inv"; save(); renderMain(); };
+document.getElementById("plv").oninput = e => { db.playerLevel = Math.max(1, parseInt(e.target.value) || 1); save(); };
+document.getElementById("main").addEventListener("input", e => {
+  if (db.view !== "inv" || !e.target.dataset.k) return;
+  const it = db.items[+e.target.closest(".item-row").dataset.i], k = e.target.dataset.k;
+  it[k] = (k === "name" || k === "note") ? e.target.value : (parseFloat(e.target.value) || 0);
+  refreshInv();
+});
+document.getElementById("main").addEventListener("click", e => {
+  if (db.view !== "inv") return;
+  if (e.target.id === "add-item") { db.items.push({ id: uid(), name: "Nový item", qty: 1, dur: 100, maxDur: 100, price: 0, note: "" }); save(); renderInv(); }
+  else if (e.target.dataset.rm !== undefined) { db.items.splice(+e.target.closest(".item-row").dataset.i, 1); save(); renderInv(); }
+});
+
+/* export / import */
+document.getElementById("exp").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)], { type: "application/json" }));
+  a.download = "zombie-skills.json"; a.click(); URL.revokeObjectURL(a.href);
+};
+document.getElementById("imp").onclick = () => document.getElementById("file").click();
+document.getElementById("file").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.skills)) throw 0;
+      if (!confirm("Přepsat současná data importovanými?")) return;
+      db = d; save(); renderList(); renderMain();
+    } catch (x) { alert("Tohle není platný export skillů."); }
+  };
+  r.readAsText(f); e.target.value = "";
+};
+
+load();
+if (!db.sel && db.skills.length) db.sel = db.skills[0].id;
+renderList(); renderMain();
+</script>
+</body>
+</html>
