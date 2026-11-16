@@ -494,26 +494,32 @@ const video=$("#v"),cv=$("#ov"),cx=cv.getContext("2d");
 let fps=0,fpsN=0,fpsT=0,lowN=0,slowWarned=false;
 let lm=null,lmI=null,mkLm=null,live=false,stream=null,fm="user",tab="fight",lastT=-1;
 let st={reached:false,worst:1,maxD:0},sm={e:null,b:null};
-let delegate="GPU",errN=0;
+let delegate="GPU",errN=0,forceCpu=false,mpConf=true;
 function stat(t,err){const e=$("#sstat");e.textContent=t||"";e.hidden=!t;e.classList.toggle("err",!!err)}
+const errTxt=e=>String((e&&e.message)||e||"unknown error").slice(0,160);
 async function loadModel(){
-  if(lm)return;
+  if(lm){stat("");return}
   stat("Loading pose model…");
   let mp;
-  try{mp=await mpP}catch(e){throw new Error("Could not load the tracking library. Check your internet connection.")}
+  try{mp=await mpP}catch(e){console.error(e);throw new Error("Could not load the tracking library ("+errTxt(e)+"). Check your internet connection.")}
   const {PoseLandmarker,FilesetResolver}=mp;
-  const fs=await FilesetResolver.forVisionTasks(CDN+"/wasm");
-  mkLm=(r)=>PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MODELS[S.mq||"full"],delegate},runningMode:r,numPoses:1,minPoseDetectionConfidence:.35,minPosePresenceConfidence:.35,minTrackingConfidence:.35});
-  try{lm=await mkLm("VIDEO")}
-  catch(e){
-    if(delegate==="GPU"){delegate="CPU";try{lm=await mkLm("VIDEO")}catch(e2){}}
-    if(!lm){
-      if((S.mq||"full")==="lite")throw new Error("Could not load the pose model. Check your internet connection.");
-      S.mq="lite";save();syncQ();stat("That model would not load. Switching to Fast…");
-      try{lm=await mkLm("VIDEO")}catch(e3){throw new Error("Could not load the pose model. Check your internet connection.")}
-    }
+  let fs;
+  try{fs=await FilesetResolver.forVisionTasks(CDN+"/wasm")}catch(e){console.error(e);throw new Error("Could not load the tracking engine ("+errTxt(e)+").")}
+  mkLm=(r)=>PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MODELS[S.mq||"full"],delegate},runningMode:r,numPoses:1,...(mpConf?{minPoseDetectionConfidence:.35,minPosePresenceConfidence:.35,minTrackingConfidence:.35}:{})});
+  /* try the chosen setup first, then progressively simpler ones until one works */
+  const q0=S.mq||"full";
+  let plan=[[q0,"GPU",true],[q0,"CPU",true],[q0,"GPU",false],[q0,"CPU",false],["lite","GPU",false],["lite","CPU",false]];
+  if(forceCpu)plan=plan.filter(p=>p[1]==="CPU");
+  const seen=new Set();let lastErr=null;
+  for(const [q,d,c] of plan){
+    const key=q+d+c;if(seen.has(key))continue;seen.add(key);
+    S.mq=q;delegate=d;mpConf=c;
+    try{lm=await mkLm("VIDEO");lastErr=null;break}
+    catch(e){lastErr=e;console.error("model load failed:",q,d,c,e)}
   }
-  stat("");
+  if(!lm){S.mq=q0;throw new Error("Could not load the pose model ("+errTxt(lastErr)+"). Check your internet connection.")}
+  if(S.mq!==q0){save();syncQ();stat("Using the "+MQN[S.mq]+" model on this phone.");setTimeout(()=>stat(""),3500)}
+  else stat("");
 }
 const imgLm=async()=>lmI||(lmI=await mkLm("IMAGE"));
 
@@ -564,7 +570,7 @@ async function start(){
     $("#flip").hidden=false;
     if(!live){live=true;loop()}
   }catch(e){$("#go").hidden=false;$("#go").textContent="Try again";stat(camMsg(e),true);return}
-  try{await loadModel();stat("");say("Get into push-up position.")}
+  try{await loadModel();say("Get into push-up position.")}
   catch(e){$("#go").hidden=false;$("#go").textContent="Try again";stat(e.message,true)}
 }
 const setMirror=()=>$("#stage").classList.toggle("mir",S.mode==="front"&&fm==="user");
@@ -719,7 +725,7 @@ function loop(){
     if(S.dbg)dbgShow(q,front);
   }}catch(e){
     console.error(e);
-    if(++errN>=15&&delegate==="GPU"&&lm){errN=0;delegate="CPU";lm=null;lmI=null;stat("Switching tracking to CPU mode…");loadModel().catch(er=>stat(er.message,true))}
+    if(++errN>=15&&!forceCpu&&delegate==="GPU"&&lm){errN=0;forceCpu=true;lm=null;lmI=null;stat("Switching tracking to CPU mode…");loadModel().catch(er=>stat(er.message,true))}
   }
   requestAnimationFrame(loop);
 }
