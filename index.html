@@ -603,23 +603,23 @@ function diag(p,W,H,m,q){
     if(!p)return E("none","🔍","I can't see you. Prop the phone on a wall in front of you, about 2 m away, screen facing you.","err");
     if(!m)return E("part","👀","I can't see your shoulders. Move the phone back or tilt it up.","warn");
     if(q.hv&&q.torso>(S.ft||.75))return E("pos","🧍","Get into push-up position. Reps don't count while you stand or squat.","info");
-    if([11,12,13,14].some(i=>(p[i].visibility??1)>=.5&&(p[i].x<.01||p[i].x>.99||p[i].y<.01||p[i].y>.99)))
-      return E("cut","✂️","Part of you is cut off. Move the phone back.","warn");
-    if(q.sw<.07)return E("far","🔎","Too far. Move the phone closer.","warn");
-    if(q.sw>.5)return E("near","↔️","Too close. Move the phone back a bit.","warn");
+    if([11,12,13,14].some(i=>(p[i].visibility??1)>=.6&&(p[i].x<-.01||p[i].x>1.01||p[i].y<-.01||p[i].y>1.01)))
+      return E("cut","✂️","Part of you may be cut off. Move the phone back.","warn",false);
+    if(q.sw<.07)return E("far","🔎","Too far. Move the phone closer.","warn",false);
+    if(q.sw>.5)return E("near","↔️","Too close. Move the phone back a bit.","warn",false);
     if(q.form<.6)return E("tilt","⚖️","Keep your shoulders level.","warn",false);
     if(q.depth>.4&&q.flare>(S.ffl||2.4))return E("flare","💪","Elbows flaring out. Tuck them closer to your body.","warn",false);
     return null;
   }
   if(!p)return E("none","🔍","I can't see you. Prop the phone about 2 m away, side-on.","err");
   const vis=i=>p[i].visibility??1;
-  if(KEY.some(i=>vis(i)>=.5&&(p[i].x<.01||p[i].x>.99||p[i].y<.01||p[i].y>.99)))
-    return E("cut","✂️","Part of your body is cut off. Move the phone back.","warn");
+  if(KEY.some(i=>vis(i)>=.6&&(p[i].x<-.01||p[i].x>1.01||p[i].y<-.01||p[i].y>1.01)))
+    return E("cut","✂️","Part of your body may be cut off. Move the phone back.","warn",false);
   if(!m)return E("part","👀","I can't see your whole body. Show hands to feet.","warn");
   const xs=KEY.map(i=>p[i].x),span=Math.max(...xs)-Math.min(...xs);
-  if(H>W&&span<.6)return E("port","🔄","Rotate your phone to landscape for a better view.","warn");
-  if(span<.4)return E("far","🔎","Too far. Move the phone closer.","warn");
-  if(span>.92)return E("near","↔️","Too close. Move the phone back a bit.","warn");
+  if(H>W&&span<.6)return E("port","🔄","Rotate your phone to landscape for a better view.","warn",false);
+  if(span<.4)return E("far","🔎","Too far. Move the phone closer.","warn",false);
+  if(span>.92)return E("near","↔️","Too close. Move the phone back a bit.","warn",false);
   const P=i=>({x:p[i].x*W,y:p[i].y*H});
   const mid=(a,b)=>({x:(P(a).x+P(b).x)/2,y:(P(a).y+P(b).y)/2});
   const SH=mid(11,12),A=mid(27,28),Hm=mid(23,24);
