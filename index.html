@@ -149,6 +149,8 @@ textarea{width:100%;font:12px/1.3 ui-monospace,Consolas,monospace;color:var(--tx
 input[type=number],input[type=password]{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:9px 12px;width:100%}
 #dbg{position:absolute;left:10px;top:calc(var(--st) + 100px);margin:0;padding:6px 9px;border-radius:10px;background:rgba(0,0,0,.6);color:#9fffb5;font:11px/1.35 ui-monospace,Consolas,monospace;pointer-events:none;z-index:2;white-space:pre}
 #stage:not(.full) #dbg{top:auto;bottom:8px}
+#sstat{position:absolute;left:14px;right:14px;bottom:calc(14px + var(--sb));z-index:4;padding:10px 14px;border-radius:16px;background:rgba(12,12,12,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.25);font-size:14px;text-align:center}
+#sstat.err{border-color:var(--hp)}
 </style>
 </head>
 <body>
@@ -175,6 +177,7 @@ input[type=number],input[type=password]{font:inherit;color:var(--tx);background:
   </div>
   <canvas id="pfx"></canvas>
   <div id="lvup" hidden></div>
+  <div id="sstat" hidden></div>
   <pre id="dbg" hidden></pre>
   <button id="hx" hidden>✕ Exit</button>
   <button id="go" class="pri">Start camera</button>
@@ -286,7 +289,8 @@ input[type=number],input[type=password]{font:inherit;color:var(--tx);background:
 </section>
 
 <script type="module">
-import {PoseLandmarker,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+const mpP=import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+mpP.catch(()=>{});
 const CDN="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 const MBASE="https://storage.googleapis.com/mediapipe-models/pose_landmarker/";
 const MODELS={lite:MBASE+"pose_landmarker_lite/float16/1/pose_landmarker_lite.task",full:MBASE+"pose_landmarker_full/float16/1/pose_landmarker_full.task",heavy:MBASE+"pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"};
@@ -490,13 +494,26 @@ const video=$("#v"),cv=$("#ov"),cx=cv.getContext("2d");
 let fps=0,fpsN=0,fpsT=0,lowN=0,slowWarned=false;
 let lm=null,lmI=null,mkLm=null,live=false,stream=null,fm="user",tab="fight",lastT=-1;
 let st={reached:false,worst:1,maxD:0},sm={e:null,b:null};
+let delegate="GPU",errN=0;
+function stat(t,err){const e=$("#sstat");e.textContent=t||"";e.hidden=!t;e.classList.toggle("err",!!err)}
 async function loadModel(){
   if(lm)return;
-  say("Loading pose model…");
+  stat("Loading pose model…");
+  let mp;
+  try{mp=await mpP}catch(e){throw new Error("Could not load the tracking library. Check your internet connection.")}
+  const {PoseLandmarker,FilesetResolver}=mp;
   const fs=await FilesetResolver.forVisionTasks(CDN+"/wasm");
-  let del="GPU";
-  mkLm=(r)=>PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MODELS[S.mq||"full"],delegate:del},runningMode:r,numPoses:1,minPoseDetectionConfidence:.35,minPosePresenceConfidence:.35,minTrackingConfidence:.35});
-  try{lm=await mkLm("VIDEO")}catch(e){del="CPU";lm=await mkLm("VIDEO")}
+  mkLm=(r)=>PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:MODELS[S.mq||"full"],delegate},runningMode:r,numPoses:1,minPoseDetectionConfidence:.35,minPosePresenceConfidence:.35,minTrackingConfidence:.35});
+  try{lm=await mkLm("VIDEO")}
+  catch(e){
+    if(delegate==="GPU"){delegate="CPU";try{lm=await mkLm("VIDEO")}catch(e2){}}
+    if(!lm){
+      if((S.mq||"full")==="lite")throw new Error("Could not load the pose model. Check your internet connection.");
+      S.mq="lite";save();syncQ();stat("That model would not load. Switching to Fast…");
+      try{lm=await mkLm("VIDEO")}catch(e3){throw new Error("Could not load the pose model. Check your internet connection.")}
+    }
+  }
+  stat("");
 }
 const imgLm=async()=>lmI||(lmI=await mkLm("IMAGE"));
 
@@ -521,16 +538,34 @@ function smooth(p,t){
   for(const i of KEY){q[i].x=flt[i][0].f(p[i].x*100,t)/100;q[i].y=flt[i][1].f(p[i].y*100,t)/100}
   return q;
 }
+async function getCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Object.assign(new Error("no api"),{name:"InsecureContext"});
+  const tries=[{video:{facingMode:fm,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false},{video:{facingMode:fm},audio:false},{video:true,audio:false}];
+  let last;
+  for(const c of tries){
+    try{return await navigator.mediaDevices.getUserMedia(c)}
+    catch(e){last=e;if(e.name==="NotAllowedError"||e.name==="SecurityError")break}
+  }
+  throw last;
+}
+const camMsg=e=>({
+  NotAllowedError:"Camera permission was denied. Allow the camera for this site in your browser settings, then tap Try again.",
+  SecurityError:"The browser blocked the camera. Open the https:// link in Chrome or Safari, then tap Try again.",
+  NotFoundError:"No camera was found on this device.",
+  NotReadableError:"The camera is busy. Close other apps or tabs that use it, then tap Try again.",
+  InsecureContext:"The camera only works over HTTPS. Open the https:// link in Chrome or Safari, not a local file or an in-app browser."
+}[e.name]||("Camera error: "+(e.message||e.name)));
 async function start(){
+  $("#go").hidden=true;stat("Starting camera…");
   try{
-    await loadModel();
     if(stream)stream.getTracks().forEach(t=>t.stop());
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:fm,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+    stream=await getCam();
     video.srcObject=stream;await video.play();setMirror();
-    $("#go").hidden=true;$("#flip").hidden=false;
+    $("#flip").hidden=false;
     if(!live){live=true;loop()}
-    say("Get into push-up position, side-on to the camera.");
-  }catch(e){say("Could not start: "+e.message+". The camera needs HTTPS and permission.")}
+  }catch(e){$("#go").hidden=false;$("#go").textContent="Try again";stat(camMsg(e),true);return}
+  try{await loadModel();stat("");say("Get into push-up position.")}
+  catch(e){$("#go").hidden=false;$("#go").textContent="Try again";stat(e.message,true)}
 }
 const setMirror=()=>$("#stage").classList.toggle("mir",S.mode==="front"&&fm==="user");
 $("#go").onclick=start;
@@ -658,7 +693,7 @@ function loop(){
     cx.clearRect(0,0,W,H);
     const now=performance.now();
     fpsN++;if(!fpsT)fpsT=now;if(now-fpsT>1000){fps=fpsN*1000/(now-fpsT);fpsN=0;fpsT=now;lowN=fps<12?lowN+1:0;if(lowN>=4&&!slowWarned&&(S.mq||"full")!=="lite"){slowWarned=true;say("Tracking is slow on this phone. Try Fast quality in the Admin tab.")}}
-    const raw=lm.detectForVideo(video,now).landmarks[0];
+    const raw=lm.detectForVideo(video,now).landmarks[0];errN=0;
     const p=raw&&smooth(raw,now);
     if(!p)resetF();
     const front=S.mode==="front";
@@ -682,7 +717,10 @@ function loop(){
       else if(q)count(q);
     }
     if(S.dbg)dbgShow(q,front);
-  }}catch(e){console.error(e)}
+  }}catch(e){
+    console.error(e);
+    if(++errN>=15&&delegate==="GPU"&&lm){errN=0;delegate="CPU";lm=null;lmI=null;stat("Switching tracking to CPU mode…");loadModel().catch(er=>stat(er.message,true))}
+  }
   requestAnimationFrame(loop);
 }
 
@@ -770,8 +808,8 @@ $("#rst").onclick=()=>{S.ref=JSON.parse(JSON.stringify(DEF.ref));S.fd=DEF.fd;del
 /* ---------- fullscreen battle ---------- */
 let battle=false;
 async function enterBattle(){
-  if(!live)await start();
-  if(!live)return;
+  if(!live||!lm)await start();
+  if(!live||!lm)return;
   battle=true;sess=0;combo=0;st={reached:false,worst:1,maxD:0};
   hideHint();cand=null;candN=0;clearN=0;okFlag=false;fwin.length=0;
   $("#hcombo").textContent="";$("#hud").classList.remove("hot");renderHud();
