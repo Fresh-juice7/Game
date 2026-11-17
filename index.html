@@ -246,6 +246,8 @@ input[type=number],input[type=password]{font:inherit;color:var(--tx);background:
     <b>Tracking accuracy</b>
     <p class="mu" style="margin:4px 0 10px;font-size:13px">Precise follows your body best but needs a faster phone. Fast is the lightest.</p>
     <div class="seg" id="mq"><button data-q="lite">Fast</button><button data-q="full" class="on">Balanced</button><button data-q="heavy">Precise</button></div>
+    <p class="mu" style="margin:12px 0 6px;font-size:13px">How deep a push-up must go to count</p>
+    <div class="seg" id="dp"><button data-d="0.5">Easy</button><button data-d="0.65" class="on">Normal</button><button data-d="0.85">Strict</button></div>
     <label class="mu" style="font-size:13px"><input type="checkbox" id="dbgc"> Show live numbers on the camera (for tuning)</label>
   </div>
   <div class="card">
@@ -304,7 +306,7 @@ const MON=[
 {n:"Orc",e:"👹",hp:16,xp:55},{n:"Scorpion",e:"🦂",hp:18,xp:62},{n:"Vampire",e:"🧛",hp:20,xp:75},
 {n:"Demon",e:"😈",hp:22,xp:88},{n:"Golem",e:"🗿",hp:25,xp:100},{n:"Dragon",e:"🐉",hp:30,xp:140}];
 const LOOT=[{n:"Rusty coin",v:3,w:40},{n:"Bone shard",v:8,w:25},{n:"Wolf fang",v:12,w:15},{n:"Silver ring",v:20,w:10},{n:"Ghost essence",v:35,w:6},{n:"Dragon scale",v:60,w:4},{n:"Boss trophy",v:150,w:0}];
-const DEF={xp:0,gold:0,inv:{},kills:0,hp:null,reps:0,days:{},mode:"side",fd:.5,mq:"full",dbg:false,target:"mon",boss:null,bossN:0,bossKills:0,crits:0,ref:{top:{elbow:165,body:170},bot:{elbow:85,body:170}}};
+const DEF={xp:0,gold:0,inv:{},kills:0,hp:null,reps:0,days:{},mode:"side",fd:.5,mq:"full",dbg:false,dp:.65,target:"mon",boss:null,bossN:0,bossKills:0,crits:0,ref:{top:{elbow:165,body:170},bot:{elbow:85,body:170}}};
 let S;try{S=Object.assign({},DEF,JSON.parse(localStorage.getItem("pdg")||"{}"))}catch(e){S={...DEF}}
 const save=()=>{try{localStorage.setItem("pdg",JSON.stringify(S))}catch(e){}};
 const mon=k=>{const b=MON[k%MON.length],s=1+Math.floor(k/MON.length)*.5;return{...b,hp:Math.round(b.hp*s),xp:Math.round(b.xp*s)}};
@@ -476,10 +478,11 @@ function metrics(p,W,H){
   }
   return mx<.5||T<=0?null:{e:E/T,b:B/T};
 }
+let topB=null;   /* your own body-line angle while at the top; form = how much it changes during the rep */
 function score(e,b){
-  const R=S.ref,te=R.top.elbow,be=R.bot.elbow,rb=(R.top.body+R.bot.body)/2;
+  const R=S.ref,te=R.top.elbow,be=R.bot.elbow,rb=topB!=null?topB:(R.top.body+R.bot.body)/2;
   const depth=clamp((te-e)/Math.max(20,te-be),0,1);
-  const form=clamp(1-Math.max(0,Math.abs(b-rb)-6)/20,0,1);
+  const form=clamp(1-Math.max(0,Math.abs(b-rb)-8)/22,0,1);
   return{depth,form};
 }
 function draw(c,p,W,H,col,r){
@@ -625,8 +628,8 @@ function diag(p,W,H,m,q){
   const SH=mid(11,12),A=mid(27,28),Hm=mid(23,24);
   const len=Math.hypot(A.x-SH.x,A.y-SH.y);
   if(len>30){
-    if(Math.hypot(P(11).x-P(12).x,P(11).y-P(12).y)/len>.5)
-      return E("side","📐","Turn side-on. The camera sees you from the front or back.","warn");
+    if(Math.hypot(P(11).x-P(12).x,P(11).y-P(12).y)/len>.65)
+      return E("side","📐","Turn side-on. The camera sees you from the front or back.","warn",false);
     if(Math.atan2(Math.abs(A.y-SH.y),Math.abs(A.x-SH.x))*180/Math.PI>35)
       return E("pos","🧍","Get into push-up position. Reps don't count while you stand or squat.","info");
     if(q&&q.depth>.15&&q.form<.6&&Math.abs(A.x-SH.x)>20){
@@ -664,26 +667,26 @@ function dbgShow(q,front){
   const el=$("#dbgpanel"),head=`${S.mode} · ${fps.toFixed(0)} fps · ${S.mq||"full"}`;
   if(!q){el.textContent=head+"\nno body";return}
   el.textContent=head+`\ndepth ${Math.round(q.depth*100)}%  form ${Math.round(q.form*100)}%\n`+
-    (front?`drop ${q.raw.toFixed(2)} torso ${q.torso.toFixed(2)} flare ${q.flare.toFixed(1)}`:`elbow ${sm.e.toFixed(0)}° body ${sm.b.toFixed(0)}°`)+
+    (front?`drop ${q.raw.toFixed(2)} torso ${q.torso.toFixed(2)} flare ${q.flare.toFixed(1)}`:`elbow ${sm.e.toFixed(0)}° body ${sm.b.toFixed(0)}° (base ${topB==null?"-":topB.toFixed(0)}°)`)+
     `\n${st.reached?"BOTTOM":"-"}  reps ${sess}`;
 }
 function meter(q){
   const v=q?q.depth*q.form*100:0;
   $("#mf").style.width=v+"%";$("#hmf").style.height=v+"%";$("#hpc").textContent=Math.round(v)+"%";
   const hm=$("#hmeter");
-  hm.classList.toggle("rdy",!!q&&q.depth>=.9&&q.form>.55);
+  hm.classList.toggle("rdy",!!q&&q.depth>=(S.dp||.65)&&q.form>.4);
   hm.classList.toggle("bad",!!q&&q.depth>.2&&q.form<=.55);
 }
 function count(q){
   if(q.depth>.3&&!st.t0)st.t0=performance.now();
   if(q.depth>.3)st.worst=Math.min(st.worst,q.form);
   st.maxD=Math.max(st.maxD,q.depth);
-  if(q.depth>=.9)st.reached=true;
-  if(q.depth<=.15&&st.maxD>.3){
+  if(q.depth>=(S.dp||.65))st.reached=true;
+  if(q.depth<=.25&&st.maxD>.3){
     if(st.t0&&performance.now()-st.t0<600){st={reached:false,worst:1,maxD:0};return}
     if(S.mode==="front"&&st.t0&&performance.now()-st.t0>9000){st={reached:false,worst:1,maxD:0};return}
     if(st.reached){
-      if(st.worst>=.55){const dur=st.t0?performance.now()-st.t0:0;hit({crit:st.worst>=Math.max(.75,.9-.01*lvl(S.xp)),tempo:dur>=2500&&dur<=9000})}
+      if(st.worst>=.25){const dur=st.t0?performance.now()-st.t0:0;hit({crit:st.worst>=Math.max(.75,.9-.01*lvl(S.xp)),tempo:dur>=2500&&dur<=9000})}
       else{bump("bad");combo=0;$("#hcombo").textContent="";$("#hud").classList.remove("hot");fx("bad");fl("BAD FORM","");save();render();say("Hips off the line, so that rep didn't count.")}
     }else{bump("half");combo=0;$("#hcombo").textContent="";$("#hud").classList.remove("hot");fx("warn");fl("HALF REP","");save();render();say("Half rep. Go lower.")}
     st={reached:false,worst:1,maxD:0};
@@ -711,6 +714,7 @@ function loop(){
         sm.e=sm.e==null?m.e:sm.e*.5+m.e*.5;
         sm.b=sm.b==null?m.b:sm.b*.5+m.b*.5;
         q=score(sm.e,sm.b);
+        if(q.depth<.2)topB=topB==null?sm.b:topB*.9+sm.b*.1;
       }
       draw(cx,p,W,H,q.form>.55?"#4ade80":"#ffb020",5);
       if(calib)calib.push(front?{raw:q.raw,torso:q.hv?q.torso:null,flare:q.flare}:{e:m.e,b:m.b});
@@ -719,7 +723,7 @@ function loop(){
     if(tab==="fight"){
       const d=diag(p,W,H,m,q);
       coach(d);
-      if(d&&d.setup){st={reached:false,worst:1,maxD:0};if(front)fwin.length=0}
+      if(d&&d.setup){st={reached:false,worst:1,maxD:0};topB=null;if(front)fwin.length=0}
       else if(q)count(q);
     }
     if(S.dbg)dbgShow(q,front);
@@ -817,7 +821,7 @@ async function enterBattle(){
   if(!live||!lm)await start();
   if(!live||!lm)return;
   battle=true;sess=0;combo=0;st={reached:false,worst:1,maxD:0};
-  hideHint();cand=null;candN=0;clearN=0;okFlag=false;fwin.length=0;
+  hideHint();cand=null;candN=0;clearN=0;okFlag=false;fwin.length=0;topB=null;
   $("#hcombo").textContent="";$("#hud").classList.remove("hot");renderHud();
   if(tgt().boss){fl("BOSS FIGHT","big",0);fx("bad");burst(.5,.2,36,["#ff2d2d","#ffb020"],9);vib([40,40,80])}
   $("#stage").classList.add("full");$("#hx").hidden=false;
@@ -843,7 +847,7 @@ function setMode(m,keep){
   S.mode=m;save();
   document.querySelectorAll("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
   $("#mdesc").textContent=MD[m];
-  fwin.length=0;st={reached:false,worst:1,maxD:0};hideHint();cand=null;candN=0;
+  fwin.length=0;topB=null;st={reached:false,worst:1,maxD:0};hideHint();cand=null;candN=0;
   cx.clearRect(0,0,cv.width,cv.height);meter(null);
   if(m==="front"&&fm!=="user"&&!keep){fm="user";if(live)start()}
   setMirror();
@@ -948,6 +952,9 @@ document.querySelectorAll("#mq button").forEach(b=>b.onclick=async()=>{
 $("#dbgc").checked=!!S.dbg;$("#dbgpanel").hidden=!S.dbg;
 $("#dbgc").onchange=()=>{S.dbg=$("#dbgc").checked;$("#dbgpanel").hidden=!S.dbg;save()};
 syncQ();
+const syncD=()=>document.querySelectorAll("#dp button").forEach(b=>b.classList.toggle("on",+b.dataset.d===(S.dp||.65)));
+document.querySelectorAll("#dp button").forEach(b=>b.onclick=()=>{S.dp=+b.dataset.d;save();syncD()});
+syncD();
 
 /* ---------- export / import ---------- */
 $("#exp").onclick=async()=>{
