@@ -151,6 +151,163 @@ input[type=number],input[type=password]{font:inherit;color:var(--tx);background:
 #stage:not(.full) #dbgpanel{top:auto;bottom:8px}
 #sstat{position:absolute;left:14px;right:14px;bottom:calc(14px + var(--sb));z-index:4;padding:10px 14px;border-radius:16px;background:rgba(12,12,12,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.25);font-size:14px;text-align:center}
 #sstat.err{border-color:var(--hp)}
+
+.mob{width:100%;height:100%;overflow:visible}
+.mob .eye{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+.mob .fl1{transform-box:fill-box;transform-origin:right center;animation:flap .45s ease-in-out infinite alternate}
+@keyframes flap{to{transform:rotate(-16deg)}}
+.mob .leg{transform-box:fill-box;transform-origin:center top;animation:legw .7s ease-in-out infinite alternate}
+@keyframes legw{to{transform:rotate(7deg)}}
+.mob .glow{animation:gl 1.6s ease-in-out infinite alternate}
+@keyframes gl{to{opacity:.5}}
+.mob .tent{transform-box:fill-box;transform-origin:50% 0;animation:sway 2.2s ease-in-out infinite alternate}
+@keyframes sway{to{transform:rotate(7deg)}}
+.mob .sq{transform-box:fill-box;transform-origin:50% 100%;animation:squish 1.5s ease-in-out infinite}
+@keyframes squish{50%{transform:scale(1.07,.92)}}
+.mob .flt{animation:bobs 2.2s ease-in-out infinite}
+@keyframes bobs{50%{transform:translateY(-4px)}}
+.mob .rot{transform-box:fill-box;transform-origin:center;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#me{width:86px;height:86px;font-size:0}
+#me svg,#hme svg{width:100%;height:100%;filter:drop-shadow(0 0 7px var(--aura,#fff))}
+#me svg{padding:1px}
+.card.boss #me{width:104px;height:104px;font-size:0}
+#hme{display:block;width:58px;height:58px;font-size:0}
+#hm.boss #hme{width:88px;height:88px;font-size:0}
+#hm{box-shadow:0 0 26px -6px var(--aura,transparent)}
+#hm.boss #hhpt{background:rgba(255,255,255,.7)!important}
+#hhint{top:calc(96px + var(--st))}
+#hm.boss~#hhint{top:calc(128px + var(--st))}
+.bar.tr{position:relative}
+.bar.tr>i{position:absolute;left:0;top:0;bottom:0;height:auto}
+#hpft,#hhpt{background:rgba(255,255,255,.7);transition:width .7s ease .18s}
+.ring{flex:none;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#fff var(--p,0%),#262626 0)}
+.ring .lv{display:grid;place-items:center;align-content:center;width:48px;height:48px;border-radius:50%;background:var(--bg);font:700 22px/1 var(--dot)}
+.ring .lv small{font:600 8px system-ui;letter-spacing:.14em;color:var(--mu);margin-bottom:1px}
+#hp{position:absolute;right:10px;top:calc(56px + var(--st));width:44px;height:44px;padding:0;border-radius:50%;background:rgba(12,12,12,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:16px}
+#pz{position:absolute;inset:0;z-index:6;display:grid;place-content:center;justify-items:center;gap:14px;text-align:center;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff}
+#pz[hidden]{display:none}
+#pz b{font:700 40px var(--dot);letter-spacing:.08em}
+#pz span{color:var(--mu);font-size:14px;max-width:260px}
+</style>
+</head>
+<body>
+<h1>Push-Up Dungeon</h1>
+<div class="top">
+  <div class="ring" id="ring"><span class="lv" id="lv"><small>LV</small>1</span></div>
+  <div><div class="bar"><i id="xpf"></i></div><small class="mu" id="xpt"></small></div>
+  <b id="gold">0</b>
+</div>
+
+<div id="stage">
+  <video id="v" playsinline muted></video>
+  <canvas id="ov"></canvas>
+  <div id="hud">
+    <div id="hm"><span id="hme"></span><div class="hmi"><div id="htag" hidden>WEEKLY BOSS</div><b id="hmn"></b><div class="bar tr"><i id="hhpt"></i><i id="hhp" style="background:var(--hp)"></i></div><small id="hht"></small></div></div>
+    <div id="hhint" hidden></div>
+    <button id="hp" aria-label="Pause">⏸</button>
+    <div id="hpc">0%</div>
+    <div id="hmeter"><i id="hmf"></i></div>
+    <div id="hcombo"></div>
+    <div id="hmsg"></div>
+    <div id="hrep"></div>
+    <div id="hxp"><b id="hlv">Lv 1</b><div class="bar"><i id="hxpf"></i></div></div>
+    <div id="hfx"></div>
+  </div>
+  <canvas id="pfx"></canvas>
+  <div id="lvup" hidden></div>
+  <div id="pz" hidden><b>PAUSED</b><span>Reps are not counted while paused.</span><div class="btns"><button id="pzr" class="pri">Resume</button><button id="pzx">Exit battle</button></div></div>
+  <div id="sstat" hidden></div>
+  <pre id="dbgpanel" hidden></pre>
+  <button id="hx" hidden>✕ Exit</button>
+  <button id="go" class="pri">Start camera</button>
+  <button id="flip" hidden>Flip</button>
+</div>
+<p id="say" class="mu">Prop your phone about 2 m away, side-on, so your whole body is in frame.</p>
+
+<div class="tabs">
+  <button data-t="fight" class="on">Fight</button>
+  <button data-t="bag">Bag</button>
+  <button data-t="stats">Stats</button>
+  <button data-t="admin">Admin</button>
+</div>
+
+<section id="p-fight" class="p on">
+  <div class="seg" id="seg"><button data-m="side" class="on">Side view</button><button data-m="front">Front view</button></div>
+  <p class="mu" id="mdesc" style="margin:0 4px 10px;font-size:13px"></p>
+  <div class="seg" id="tg"><button data-t="mon" class="on">Monsters</button><button data-t="boss" id="tgb">👑 Weekly boss</button></div>
+  <button id="battle" class="pri" style="width:100%;margin-bottom:10px;font-size:17px">⚔️ Start battle (fullscreen)</button>
+  <div class="card" id="tcard">
+    <div class="mc" id="mc">
+      <span id="me"></span>
+      <div class="grow">
+        <div class="mn" id="mn"></div>
+        <div class="bar tr"><i id="hpft"></i><i id="hpf"></i></div>
+        <small class="mu" id="hpt"></small>
+      </div>
+    </div>
+    <small class="mu" id="tsub" style="display:block;margin-top:10px"></small>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between"><span>Form meter</span><b id="reps">0 reps</b></div>
+    <div class="bar" style="height:18px;margin-top:6px"><i id="mf"></i></div>
+    <small class="mu">Perfect form = critical hit (double damage). Slow, controlled reps give bonus XP.</small>
+  </div>
+</section>
+
+<section id="p-bag" class="p">
+  <div class="card">
+    <div id="bag"></div>
+    <button class="pri" id="sell" style="margin-top:10px">Sell all loot</button>
+  </div>
+  <div class="card">
+    <b>Back up your save</b>
+    <p class="mu" style="margin:4px 0 8px">Export copies your progress as text. Paste it here on another device or after clearing your browser, then tap Import.</p>
+    <textarea id="sv" rows="4" placeholder="Save code appears here, or paste one to import"></textarea>
+    <div class="btns"
+r-events:none;animation:up 1s ease-out forwards;white-space:nowrap}
+.fl.big{top:42%;font-size:30px;color:#fff}
+@keyframes up{0%{opacity:0;transform:translate(-50%,10px) scale(.6)}20%{opacity:1;transform:translate(-50%,0) scale(1.2)}100%{opacity:0;transform:translate(-50%,-70px) scale(1)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.p.on{animation:fadein .25s}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}}
+#xpf{background:linear-gradient(90deg,#fff,#ffd23f,#fff);background-size:200% 100%;animation:shim 2.4s linear infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.lv{display:inline-block}
+#me{animation:bob 2.2s ease-in-out infinite}
+.card.boss{border-color:rgba(255,45,45,.55);box-shadow:0 0 28px rgba(255,45,45,.22);animation:bglow 1.6s ease-in-out infinite alternate}
+@keyframes bglow{to{box-shadow:0 0 42px rgba(255,45,45,.45)}}
+.card.boss #me{font-size:44px;border-color:rgba(255,45,45,.6)}
+#pfx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+#hud{background:linear-gradient(180deg,rgba(0,0,0,.4),transparent 24%,transparent 68%,rgba(0,0,0,.45))}
+#hud.hot::before{content:"";position:absolute;inset:0;box-shadow:inset 0 0 70px 10px rgba(255,45,45,.45);animation:hotp .9s ease-in-out infinite alternate}
+@keyframes hotp{to{box-shadow:inset 0 0 110px 22px rgba(255,120,30,.6)}}
+#hm.boss{border-color:rgba(255,45,45,.8);animation:bglow 1.2s ease-in-out infinite alternate}
+#hm.boss #hme{font-size:54px}
+#hm.boss .bar>i{background:linear-gradient(90deg,#ff2d2d,#ff8a00)!important}
+#htag{font:700 10px system-ui;letter-spacing:.18em;color:#ff6b6b}
+#hxp{position:absolute;left:calc(140px + env(safe-area-inset-left,0px));right:72px;bottom:calc(var(--sb) + 54px);display:flex;align-items:center;gap:8px}
+#hxp b{font:700 14px var(--dot)}
+#hxp .bar{flex:1;height:6px;background:rgba(255,255,255,.2)}
+#hxpf{background:#fff}
+#hfx.f-crit{box-shadow:inset 0 0 120px 44px rgba(255,210,63,.9);animation:fx .6s}
+.fl.crit{color:#ffd23f;font-size:56px;top:20%;text-shadow:0 0 22px rgba(255,210,63,.9),0 2px 12px #000}
+.fl.xp{top:37%;font-size:22px;color:#fff}
+#lvup{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;z-index:3;padding:16px 26px;border-radius:24px;background:rgba(12,12,12,.72);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1.5px solid #ffd23f;color:#fff}
+#lvup b{display:block;font:700 34px var(--dot);letter-spacing:.06em;color:#ffd23f}
+#lvup span{font-size:16px}
+#lvup.in{animation:lvin .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes lvin{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}}
+#stage.shk{animation:shk .35s}
+@keyframes shk{20%{translate:-10px 4px}40%{translate:9px -5px}60%{translate:-6px 3px}80%{translate:4px -2px}}
+.fld{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;margin:6px 0}
+input[type=number],input[type=password]{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:9px 12px;width:100%}
+#dbgpanel{position:absolute;left:10px;top:calc(var(--st) + 100px);margin:0;padding:6px 9px;border-radius:10px;background:rgba(0,0,0,.6);color:#9fffb5;font:11px/1.35 ui-monospace,Consolas,monospace;pointer-events:none;z-index:2;white-space:pre}
+#stage:not(.full) #dbgpanel{top:auto;bottom:8px}
+#sstat{position:absolute;left:14px;right:14px;bottom:calc(14px + var(--sb));z-index:4;padding:10px 14px;border-radius:16px;background:rgba(12,12,12,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.25);font-size:14px;text-align:center}
+#sstat.err{border-color:var(--hp)}
 </style>
 </head>
 <body>
